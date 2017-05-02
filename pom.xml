@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.wjusite.boot</groupId>
 	<artifactId>spring-boot-starter-dubbox</artifactId>
-	<version>1.0.2-SNAPSHOT</version>
+	<version>1.0.3-SNAPSHOT</version>
 	<name>spring-boot-starter-dubbox</name>
 	<description>Spring Boot Starter Dubbox</description>
 

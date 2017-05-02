@@ -4,12 +4,18 @@ import com.alibaba.dubbo.config.*;
 import com.alibaba.dubbo.config.spring.AnnotationBean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.bind.RelaxedPropertyResolver;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.EnvironmentAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.util.StringUtils;
+
+import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * @author Kola 6089555
@@ -18,84 +24,102 @@ import org.springframework.util.StringUtils;
  * @date 2017年4月19日 下午3:24:12
  */
 @Configuration
-@ConditionalOnClass(RegistryConfig.class)
-public class DubboxAutoConfiguration {
-
+@EnableConfigurationProperties(DubboxProperties.class)
+public class DubboxAutoConfiguration implements EnvironmentAware {
+    
     private static final Logger LOGGER = LoggerFactory.getLogger(DubboxAutoConfiguration.class);
-
+    
+    @Autowired
+    DubboxProperties dubboxProperties;
+    
     @Bean
-    public static AnnotationBean annotationBean(@Value("${dubbox.annotation.package:#{null}}") String packageName) {
+    public static AnnotationBean annotationBean(@Value("${dubbo.annotation.package:#{null}}") String packageName) {
         AnnotationBean annotationBean = new AnnotationBean();
         if (!StringUtils.isEmpty(packageName)) {
             annotationBean.setPackage(packageName);
             LOGGER.info("DubboxAutoConfiguration.annotationBean ---> {}", packageName);
         } else {
-            LOGGER.error("请设置'dubbox.annotation.package'值,扫描包路径！");
+            LOGGER.error("请设置'dubbo.annotation.package'值,扫描包路径！");
         }
         return annotationBean;
     }
-
+    
     @Bean
-    @ConfigurationProperties(prefix = "dubbox.service")
-    public ServiceConfig<?> serviceConfig() {
-        return new ServiceConfig<>();
+    public ServiceConfig<?> serviceConfig(ApplicationConfig applicationConfig, ProviderConfig providerConfig, ProtocolConfig protocolConfig, RegistryConfig registryConfig) {
+        ServiceConfig<?> serviceConfig = dubboxProperties.getService();
+        serviceConfig.setApplication(applicationConfig);
+        serviceConfig.setProvider(providerConfig);
+        serviceConfig.setProtocol(protocolConfig);
+        serviceConfig.setRegistry(registryConfig);
+        return serviceConfig;
     }
-
+    
     @Bean
-    @ConfigurationProperties(prefix = "dubbox.reference")
     public ReferenceConfig<?> referenceConfig() {
-        return new ReferenceConfig<>();
+        return dubboxProperties.getReference();
     }
-
+    
     @Bean
-    @ConfigurationProperties(prefix = "dubbox.protocol")
     public ProtocolConfig protocolConfig() {
-        return new ProtocolConfig();
+        return dubboxProperties.getProtocol();
     }
-
+    
     @Bean
-    @ConfigurationProperties(prefix = "dubbox.application")
     public ApplicationConfig applicationConfig() {
-        return new ApplicationConfig();
+        return dubboxProperties.getApplication();
     }
-
+    
     @Bean
-    @ConfigurationProperties(prefix = "dubbox.module")
     public ModuleConfig moduleConfig(ApplicationConfig applicationConfig) {
-        ModuleConfig moduleConfig = new ModuleConfig();
+        ModuleConfig moduleConfig = dubboxProperties.getModule();
         if (null == moduleConfig.getName()) {
             moduleConfig.setName(applicationConfig.getName());
         }
         return moduleConfig;
     }
-
+    
     @Bean
-    @ConfigurationProperties(prefix = "dubbox.registry")
     public RegistryConfig registry() {
-        return new RegistryConfig();
+        return dubboxProperties.getRegistry();
     }
-
+    
     @Bean
-    @ConfigurationProperties(prefix = "dubbox.monitor")
     public MonitorConfig monitorConfig() {
-        return new MonitorConfig();
+        return dubboxProperties.getMonitor();
     }
-
+    
     @Bean
-    @ConfigurationProperties(prefix = "dubbox.provider")
-    public ProviderConfig providerConfig(ApplicationConfig applicationConfig, RegistryConfig registryConfig, ProtocolConfig protocolConfig) {
-        ProviderConfig providerConfig = new ProviderConfig();
+    public ProviderConfig providerConfig(ApplicationConfig applicationConfig, RegistryConfig registryConfig, ProtocolConfig protocolConfig, MonitorConfig monitorConfig, ModuleConfig moduleConfig) {
+        ProviderConfig providerConfig = dubboxProperties.getProvider();
         providerConfig.setApplication(applicationConfig);
         providerConfig.setRegistry(registryConfig);
         providerConfig.setProtocol(protocolConfig);
-        LOGGER.info("DubboxAutoConfiguration.providerConfig ---> {}", providerConfig);
+        if (monitorConfig != null) {
+            providerConfig.setMonitor(monitorConfig);
+        }
+        if (moduleConfig != null) {
+            providerConfig.setModule(moduleConfig);
+        }
         return providerConfig;
     }
-
+    
     @Bean
-    @ConfigurationProperties(prefix = "dubbox.method")
     public MethodConfig methodConfig() {
-        return new MethodConfig();
+        return dubboxProperties.getMethod();
     }
-
+    
+    @Override
+    public void setEnvironment(Environment environment) {
+        RelaxedPropertyResolver propertyResolver = new RelaxedPropertyResolver(environment);
+        Map<String, Object> subProperties = propertyResolver.getSubProperties("dubbo.");
+        if (subProperties != null) {
+            LOGGER.debug("DubboxAutoConfiguration fill systemProperty start");
+            for (Entry<String, Object> entry : subProperties.entrySet()) {
+                if (entry != null && !StringUtils.isEmpty(entry.getKey()) && !StringUtils.isEmpty(entry.getValue())) {
+                    System.setProperty("dubbo.".concat(entry.getKey()), entry.getValue().toString());
+                }
+            }
+            LOGGER.debug("DubboxAutoConfiguration fill systemProperty end");
+        }
+    }
 }

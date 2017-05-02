@@ -2,7 +2,7 @@
 
 ## 配置示例
 ```
-dubbox:
+dubbo:
   application:
     name: spring-boot-dubbox
     organization: dubbox
@@ -11,7 +11,7 @@ dubbox:
     protocol: zookeeper
     address: 192.168.1.1:2181,192.168.1.2:2181,192.168.1.3:2181
     register: true
-  provider:
+  service:
       group: kola
   annotation:
     package: tk.mybatis.springboot.service
